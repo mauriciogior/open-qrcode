@@ -70,9 +70,11 @@ public class MainActivity extends AppCompatActivity implements ZXingScannerView.
     private ZXingScannerView mScannerView;
     private ListView mListView;
     private ArrayAdapter<String> mArrayAdapter;
+    private Menu mMenu;
 
     private int menu = R.id.navigation_camera;
-    private List<Integer> checkedItems;
+    private boolean flash = false;
+    private List<Integer> checkedItems = new ArrayList<>();
 
     private ListView.MultiChoiceModeListener multiChoiceModeListener = new AbsListView.MultiChoiceModeListener() {
         @Override
@@ -94,9 +96,21 @@ public class MainActivity extends AppCompatActivity implements ZXingScannerView.
 
         @Override
         public boolean onCreateActionMode(ActionMode actionMode, Menu menu) {
-            checkedItems = new ArrayList<>();
             getMenuInflater().inflate(R.menu.action_mode, menu);
             setSimpleListMultipleChoice();
+
+            if (checkedItems != null) {
+                // Restore state if any
+                List<Integer> clone = new ArrayList<>(checkedItems);
+                checkedItems.clear();
+
+                for (Integer pos : clone) {
+                    mListView.setItemChecked(pos, true);
+                }
+            } else {
+                checkedItems = new ArrayList<>();
+            }
+
             return true;
         }
 
@@ -141,6 +155,7 @@ public class MainActivity extends AppCompatActivity implements ZXingScannerView.
         @Override
         public void onDestroyActionMode(ActionMode actionMode) {
             setSimpleList();
+            if (checkedItems != null) checkedItems.clear();
         }
     };
 
@@ -153,30 +168,57 @@ public class MainActivity extends AppCompatActivity implements ZXingScannerView.
             menu = item.getItemId();
             switch (item.getItemId()) {
                 case R.id.navigation_camera:
-                    mListView.setVisibility(View.GONE);
-                    mScannerView.startCamera();
+                    setCameraPage();
                     return true;
                 case R.id.navigation_history:
-                    mListView.setVisibility(View.VISIBLE);
-                    mScannerView.stopCamera();
-                    setSimpleList();
-                    mListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-                        @Override
-                        public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                            showAlertDialog((String) adapterView.getItemAtPosition(i));
-                        }
-                    });
-
+                    setHistoryPage();
                     return true;
             }
             return false;
         }
     };
 
+    private void setCameraPage() {
+        mListView.setVisibility(View.GONE);
+        mScannerView.startCamera();
+        mScannerView.setFlash(flash);
+
+        if (mMenu != null) {
+            mMenu.findItem(R.id.action_flash_on).setVisible(!flash);
+            mMenu.findItem(R.id.action_flash_off).setVisible(flash);
+
+            if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_FLASH)) {
+                mMenu.findItem(R.id.action_flash_on).setVisible(false);
+                mMenu.findItem(R.id.action_flash_off).setVisible(false);
+            }
+        }
+    }
+
+    private void  setHistoryPage() {
+        mListView.setVisibility(View.VISIBLE);
+        mScannerView.stopCamera();
+        setSimpleList();
+        mListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                showAlertDialog((String) adapterView.getItemAtPosition(i));
+            }
+        });
+
+        if (mMenu != null) {
+            mMenu.findItem(R.id.action_flash_on).setVisible(false);
+            mMenu.findItem(R.id.action_flash_off).setVisible(false);
+        }
+    }
+
     private void mounted() {
         if (menu == R.id.navigation_camera) {
-            mScannerView.startCamera();
+            setCameraPage();
             mScannerView.setAspectTolerance(0.5f);
+
+        } else {
+            setHistoryPage();
+
         }
     }
 
@@ -255,7 +297,13 @@ public class MainActivity extends AppCompatActivity implements ZXingScannerView.
         navigation.setOnNavigationItemSelectedListener(mOnNavigationItemSelectedListener);
 
         if (savedInstanceState != null) {
+            flash = savedInstanceState.getBoolean("flash", false);
             menu = savedInstanceState.getInt("menu", R.id.navigation_camera);
+            checkedItems = savedInstanceState.getIntegerArrayList("checkedItems");
+
+            if (checkedItems == null) {
+                checkedItems = new ArrayList<>();
+            }
         }
 
         // If permission not given
@@ -266,6 +314,15 @@ public class MainActivity extends AppCompatActivity implements ZXingScannerView.
             mounted();
         }
 
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+
+        outState.putBoolean("flash", flash);
+        outState.putInt("menu", menu);
+        outState.putIntegerArrayList("checkedItems", (ArrayList<Integer>) checkedItems);
     }
 
     @Override
@@ -283,17 +340,13 @@ public class MainActivity extends AppCompatActivity implements ZXingScannerView.
     }
 
     @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-
-        outState.putInt("menu", menu);
-    }
-
-    @Override
     public void onResume() {
         super.onResume();
         mScannerView.setResultHandler(this);
-        mScannerView.startCamera();
+        if (mListView.getVisibility() == View.GONE) {
+            mScannerView.startCamera();
+        }
+
     }
 
     @Override
@@ -354,6 +407,24 @@ public class MainActivity extends AppCompatActivity implements ZXingScannerView.
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         new MenuInflater(this).inflate(R.menu.menu, menu);
+        menu.findItem(R.id.action_flash_off).setVisible(false);
+        mMenu = menu;
+
+        if (this.menu == R.id.navigation_camera) {
+            mMenu.findItem(R.id.action_flash_on).setVisible(!flash);
+            mMenu.findItem(R.id.action_flash_off).setVisible(flash);
+
+            if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_FLASH)) {
+                mMenu.findItem(R.id.action_flash_on).setVisible(false);
+                mMenu.findItem(R.id.action_flash_off).setVisible(false);
+            }
+
+        } else {
+            mMenu.findItem(R.id.action_flash_on).setVisible(false);
+            mMenu.findItem(R.id.action_flash_off).setVisible(false);
+
+        }
+
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -367,7 +438,22 @@ public class MainActivity extends AppCompatActivity implements ZXingScannerView.
                  "Open source software under MIT License")
                 .setNegativeButton("Ok", null)
                 .show();
+
+        } else if (item.getItemId() == R.id.action_flash_on) {
+            mMenu.findItem(R.id.action_flash_off).setVisible(true);
+            mMenu.findItem(R.id.action_flash_on).setVisible(false);
+            flash = true;
+            mScannerView.setFlash(true);
+
+
+        } else if (item.getItemId() == R.id.action_flash_off) {
+            mMenu.findItem(R.id.action_flash_on).setVisible(true);
+            mMenu.findItem(R.id.action_flash_off).setVisible(false);
+            flash = false;
+            mScannerView.setFlash(false);
+
         }
+
         return super.onOptionsItemSelected(item);
     }
 }
