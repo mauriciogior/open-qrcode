@@ -42,10 +42,12 @@ import android.support.v7.app.AppCompatActivity;
 import android.text.SpannableString;
 import android.text.method.LinkMovementMethod;
 import android.text.util.Linkify;
+import android.view.ActionMode;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
@@ -54,7 +56,9 @@ import android.widget.Toast;
 
 import com.google.zxing.Result;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import me.dm7.barcodescanner.zxing.ZXingScannerView;
@@ -65,7 +69,80 @@ public class MainActivity extends AppCompatActivity implements ZXingScannerView.
 
     private ZXingScannerView mScannerView;
     private ListView mListView;
+    private ArrayAdapter<String> mArrayAdapter;
+
     private int menu = R.id.navigation_camera;
+    private List<Integer> checkedItems;
+
+    private ListView.MultiChoiceModeListener multiChoiceModeListener = new AbsListView.MultiChoiceModeListener() {
+        @Override
+        public void onItemCheckedStateChanged(ActionMode actionMode, int position, long id, boolean checked) {
+            if (checkedItems.contains(position)) {
+                if (!checked) {
+                    checkedItems.remove((Integer) position);
+                }
+            } else if (checked) {
+                checkedItems.add(position);
+            }
+
+            if (checkedItems.size() > 1) {
+                actionMode.setTitle(checkedItems.size() + " items selected");
+            } else {
+                actionMode.setTitle(checkedItems.size() + " item selected");
+            }
+        }
+
+        @Override
+        public boolean onCreateActionMode(ActionMode actionMode, Menu menu) {
+            checkedItems = new ArrayList<>();
+            getMenuInflater().inflate(R.menu.action_mode, menu);
+            setSimpleListMultipleChoice();
+            return true;
+        }
+
+        @Override
+        public boolean onPrepareActionMode(ActionMode actionMode, Menu menu) {
+            return false;
+        }
+
+        @Override
+        public boolean onActionItemClicked(final ActionMode actionMode, MenuItem menuItem) {
+            if (menuItem.getItemId() == R.id.action_remove) {
+                new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("Remove")
+                    .setMessage("Are you sure you want to remove " + checkedItems.size() + " item" + (checkedItems.size() > 1 ? "s" : "") + "?")
+                    .setPositiveButton("Remove", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int position) {
+                            for (Integer i : checkedItems) {
+                                String qrCode = (String) mArrayAdapter.getItem(i);
+                                removeHistory(qrCode);
+                            }
+
+                            actionMode.finish();
+                        }
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .create()
+                    .show();
+                return true;
+
+            } else if (menuItem.getItemId() == R.id.action_select_all) {
+                for (int i = 0; i < mListView.getCount(); i++) {
+                    mListView.setItemChecked(i, true);
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        @Override
+        public void onDestroyActionMode(ActionMode actionMode) {
+            setSimpleList();
+        }
+    };
 
     private BottomNavigationView.OnNavigationItemSelectedListener mOnNavigationItemSelectedListener
             = new BottomNavigationView.OnNavigationItemSelectedListener() {
@@ -82,9 +159,7 @@ public class MainActivity extends AppCompatActivity implements ZXingScannerView.
                 case R.id.navigation_history:
                     mListView.setVisibility(View.VISIBLE);
                     mScannerView.stopCamera();
-
-                    mListView.setAdapter(new ArrayAdapter<String>(MainActivity.this,
-                        android.R.layout.simple_list_item_1, android.R.id.text1, getHistory().toArray(new String[getHistory().size()])));
+                    setSimpleList();
                     mListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
                         @Override
                         public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
@@ -105,9 +180,42 @@ public class MainActivity extends AppCompatActivity implements ZXingScannerView.
         }
     }
 
+    private void setSimpleList() {
+        int index = mListView.getFirstVisiblePosition();
+        View v = mListView.getChildAt(0);
+        int top = (v == null) ? 0 : (v.getTop() - mListView.getPaddingTop());
+
+        mArrayAdapter = new ArrayAdapter<String>(MainActivity.this,
+                android.R.layout.simple_list_item_1, android.R.id.text1, new ArrayList<>(getHistory()));
+        mListView.setAdapter(mArrayAdapter);
+
+        mListView.setSelectionFromTop(index, top);
+    }
+
+    private void setSimpleListMultipleChoice() {
+        int index = mListView.getFirstVisiblePosition();
+        View v = mListView.getChildAt(0);
+        int top = (v == null) ? 0 : (v.getTop() - mListView.getPaddingTop());
+
+        mArrayAdapter = new ArrayAdapter<String>(MainActivity.this,
+                android.R.layout.simple_list_item_multiple_choice, android.R.id.text1, new ArrayList<>(getHistory()));
+        mListView.setAdapter(mArrayAdapter);
+
+        mListView.setSelectionFromTop(index, top);
+    }
+
     private Set<String> getHistory() {
         SharedPreferences sp = getSharedPreferences(this.getClass().getName(), MODE_PRIVATE);
         return new HashSet<String>(sp.getStringSet("history", new HashSet<String>()));
+    }
+
+    private void removeHistory(String qrCode) {
+        Set<String> set = getHistory();
+        set.remove(qrCode);
+
+        SharedPreferences.Editor editor = getSharedPreferences(this.getClass().getName(), MODE_PRIVATE).edit();
+        editor.putStringSet("history", set);
+        editor.apply();
     }
 
     private void pushHistory(String qrCode) {
@@ -140,6 +248,8 @@ public class MainActivity extends AppCompatActivity implements ZXingScannerView.
 
         mScannerView = findViewById(R.id.scannerView);
         mListView = findViewById(R.id.listView);
+        mListView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE_MODAL);
+        mListView.setMultiChoiceModeListener(multiChoiceModeListener);
 
         BottomNavigationView navigation = findViewById(R.id.navigation);
         navigation.setOnNavigationItemSelectedListener(mOnNavigationItemSelectedListener);
