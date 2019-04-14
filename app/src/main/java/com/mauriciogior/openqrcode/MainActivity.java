@@ -181,7 +181,7 @@ public class MainActivity extends AppCompatActivity implements ZXingScannerView.
     private void setCameraPage() {
         mListView.setVisibility(View.GONE);
         mScannerView.startCamera();
-        mScannerView.setFlash(flash);
+        setFlash(flash);
 
         if (mMenu != null) {
             mMenu.findItem(R.id.action_flash_on).setVisible(!flash);
@@ -442,18 +442,30 @@ public class MainActivity extends AppCompatActivity implements ZXingScannerView.
         } else if (item.getItemId() == R.id.action_flash_on) {
             mMenu.findItem(R.id.action_flash_off).setVisible(true);
             mMenu.findItem(R.id.action_flash_on).setVisible(false);
-            flash = true;
-            mScannerView.setFlash(true);
+            setFlash(true);
 
 
         } else if (item.getItemId() == R.id.action_flash_off) {
             mMenu.findItem(R.id.action_flash_on).setVisible(true);
             mMenu.findItem(R.id.action_flash_off).setVisible(false);
-            flash = false;
-            mScannerView.setFlash(false);
+            setFlash(false);
 
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    private void setFlash(final boolean flash) {
+        if (mScannerView == null) return;
+        if (flash == this.flash) return;
+        this.flash = flash;
+        try {
+            mScannerView.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    mScannerView.setFlash(flash);
+                }
+            }, 1500);
+        } catch (Exception ignore) { }
     }
 }
