@@ -20,7 +20,7 @@
         android:id="@+id/menu_info"
         android:icon="@drawable/ic_info"
         android:title="@string/title_info"
-        android:showAsAction="never"
+        android:showAsAction="always"
         app:showAsAction="never" />
 
 </menu>

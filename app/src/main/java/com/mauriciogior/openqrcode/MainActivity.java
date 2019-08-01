@@ -123,22 +123,22 @@ public class MainActivity extends AppCompatActivity implements ZXingScannerView.
         public boolean onActionItemClicked(final ActionMode actionMode, MenuItem menuItem) {
             if (menuItem.getItemId() == R.id.action_remove) {
                 new AlertDialog.Builder(MainActivity.this)
-                    .setTitle("Remove")
-                    .setMessage("Are you sure you want to remove " + checkedItems.size() + " item" + (checkedItems.size() > 1 ? "s" : "") + "?")
-                    .setPositiveButton("Remove", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialogInterface, int position) {
-                            for (Integer i : checkedItems) {
-                                String qrCode = (String) mArrayAdapter.getItem(i);
-                                removeHistory(qrCode);
-                            }
+                        .setTitle("Remove")
+                        .setMessage("Are you sure you want to remove " + checkedItems.size() + " item" + (checkedItems.size() > 1 ? "s" : "") + "?")
+                        .setPositiveButton("Remove", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialogInterface, int position) {
+                                for (Integer i : checkedItems) {
+                                    String qrCode = (String) mArrayAdapter.getItem(i);
+                                    removeHistory(qrCode);
+                                }
 
-                            actionMode.finish();
-                        }
-                    })
-                    .setNegativeButton("Cancel", null)
-                    .create()
-                    .show();
+                                actionMode.finish();
+                            }
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .create()
+                        .show();
                 return true;
 
             } else if (menuItem.getItemId() == R.id.action_select_all) {
@@ -372,34 +372,34 @@ public class MainActivity extends AppCompatActivity implements ZXingScannerView.
         pushHistory(text);
 
         AlertDialog dialog = new AlertDialog.Builder(this)
-            .setTitle("QR Code")
-            .setMessage(message)
-            .setPositiveButton("Copy", new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialogInterface, int i) {
-                    setClipboard(text);
-                }
-            })
-            .setNeutralButton("Share", new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialogInterface, int i) {
-                    Intent sendIntent = new Intent();
-                    sendIntent.setAction(Intent.ACTION_SEND);
-                    sendIntent.putExtra(Intent.EXTRA_TEXT, text);
-                    sendIntent.setType("text/plain");
-                    startActivity(sendIntent);
-                }
-            })
-            .setNegativeButton("Cancel", null)
-            .setOnDismissListener(new DialogInterface.OnDismissListener() {
-                @Override
-                public void onDismiss(DialogInterface dialogInterface) {
-                    if (resumeCamera) {
-                        mScannerView.resumeCameraPreview(MainActivity.this);
+                .setTitle("QR Code")
+                .setMessage(message)
+                .setPositiveButton("Copy", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        setClipboard(text);
                     }
-                }
-            })
-            .show();
+                })
+                .setNeutralButton("Share", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        Intent sendIntent = new Intent();
+                        sendIntent.setAction(Intent.ACTION_SEND);
+                        sendIntent.putExtra(Intent.EXTRA_TEXT, text);
+                        sendIntent.setType("text/plain");
+                        startActivity(sendIntent);
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .setOnDismissListener(new DialogInterface.OnDismissListener() {
+                    @Override
+                    public void onDismiss(DialogInterface dialogInterface) {
+                        if (resumeCamera) {
+                            mScannerView.resumeCameraPreview(MainActivity.this);
+                        }
+                    }
+                })
+                .show();
 
         ((TextView) dialog.findViewById(android.R.id.message)).setMovementMethod(LinkMovementMethod.getInstance());
     }
@@ -431,13 +431,20 @@ public class MainActivity extends AppCompatActivity implements ZXingScannerView.
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.menu_info) {
-            new AlertDialog.Builder(this)
-                .setTitle("Info")
-                .setMessage("Created by a pissed of developer from apps loaded with ads.\n\n" +
-                 "Mauricio Giordano <giordano@inevent.us>\n\n" +
-                 "Open source software under MIT License")
-                .setNegativeButton("Ok", null)
-                .show();
+            String text = "Created by a developer pissed off from apps loaded with ads.\n\n"
+                    + "Mauricio Giordano <giordano@inevent.us>\n\n"
+                    + "Open source software under MIT License.\n\n"
+                    + "GitHub: https://github.com/mauriciogior/open-qrcode";
+            final SpannableString message = new SpannableString(text);
+            Linkify.addLinks(message, Linkify.ALL);
+
+            AlertDialog dialog = new AlertDialog.Builder(this)
+                    .setTitle("About the app")
+                    .setMessage(message)
+                    .setNegativeButton("Ok", null)
+                    .show();
+
+            ((TextView) dialog.findViewById(android.R.id.message)).setMovementMethod(LinkMovementMethod.getInstance());
 
         } else if (item.getItemId() == R.id.action_flash_on) {
             mMenu.findItem(R.id.action_flash_off).setVisible(true);
